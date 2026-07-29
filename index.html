@@ -724,15 +724,13 @@
                 </div>
                 <div class="section-body open" id="buildingConfig">
                     <div class="section-body-inner">
+                        <input id="floors" type="hidden" value="5" />
+                        <input id="basements" type="hidden" value="0" />
+                        <input id="width" type="hidden" value="14" />
                         <div class="row">
-                            <div class="field"><label>樓層數</label><input id="floors" type="number" min="0" max="80" value="5" /></div>
-                            <div class="field"><label>地下室</label><input id="basements" type="number" min="0" max="10" value="0" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="field"><label>寬度</label><input id="width" type="number" min="5" max="80" value="14" /></div>
                             <div class="field"><label>外牆色</label><input id="wallColor" type="color" value="#e5e1d8" /></div>
+                            <div class="field"><label>玻璃色</label><input id="glassColor" type="color" value="#557c9c" /></div>
                         </div>
-                        <div class="field"><label>玻璃色</label><input id="glassColor" type="color" value="#557c9c" /></div>
 
                         <button id="generateBtn" class="primary full">生成／新增 建築</button>
 
@@ -745,7 +743,7 @@
                         <hr style="border-color:var(--line);margin:4px 0;">
 
                         <div class="row">
-                            <div class="field"><label>新增建物樓層數</label><input id="newBuildingFloors" type="number" min="1" max="30" value="3" /></div>
+                            <div class="field"><label>新增建物樓層數</label><input id="newBuildingFloors" type="number" min="1" max="30" value="5" /></div>
                             <div class="field"><label>形狀</label>
                                 <select id="buildingShape">
                                     <option value="box">長方體</option>
@@ -755,10 +753,10 @@
                         </div>
 
                         <div class="actions">
-                            <button id="footprintBtn" class="mode-btn">框選範圍</button>
-                            <button id="selectBtn" class="mode-btn">選取／刪除</button>
+                            <button id="footprintBtn" class="mode-btn full">框選範圍</button>
                         </div>
-                        <div class="actions">
+                        <div style="display:none;">
+                            <button id="selectBtn" class="mode-btn">選取／刪除</button>
                             <button id="moveBtn" class="mode-btn">↕ 移動</button>
                             <button id="deleteBuildingBtn" class="secondary full" disabled>刪除已選取建物</button>
                         </div>
@@ -790,7 +788,7 @@
                                 <input id="scaleZInput" type="number" min="0.01" step="0.05" value="1" disabled />
                             </div>
                         </div>
-                        <p class="hint">框選：先設定樓層數與形狀，再點地面兩對角新增建物；選取模式點擊建物；移動模式拖曳已選建物；長按建物後，左右拉伸按到的寬／長面，上下調整高度。</p>
+                        <p class="hint">框選：先設定新增建物樓層數與形狀，再點地面兩對角新增建物；上方工具列可切換選取與移動；長按建物後，左右拉伸按到的寬／長面，上下調整高度。</p>
                     </div>
                 </div>
             </div>
@@ -830,7 +828,7 @@
                             </div>
                             <div class="field"><label>顏色</label><input id="annotationColor" type="color" value="#5f8aff" /></div>
                         </div>
-                        <div class="field">
+                        <div class="field" style="display:none;">
                             <label>標註樓層</label>
                             <select id="annotationFloorSelect">
                                 <option value="surface">依畫面點擊 (建物表面)</option>
@@ -842,8 +840,10 @@
                             <div class="field"><label>連線粗細</label><input id="lineWidth" type="range" min="1" max="6" value="3" step="0.5" /><span id="lineWidthValue" class="hint">3</span></div>
                         </div>
                         <div class="actions">
+                            <button id="relationBtn" class="mode-btn full">🔗 單一連結</button>
+                        </div>
+                        <div style="display:none;">
                             <button id="annotationBtn" class="mode-btn">＋ 新增標示</button>
-                            <button id="relationBtn" class="mode-btn">🔗 單一連結</button>
                         </div>
                         <div class="actions">
                             <button id="multiLinkBtn" class="mode-btn">🔗 多選連結</button>
@@ -1091,6 +1091,8 @@
             selectedForLink = [];
         let onlyBasement = false;
         let selectionBoxes = [];
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+        let suppressCanvasClickUntil = 0;
         let selectedRelationIds = [];
         let nextRelationId = 1;
         let markerDragIndex = -1;
@@ -3199,7 +3201,7 @@
                 x = (minX + maxX) / 2,
                 z = (minZ + maxZ) / 2;
             if (footprintPreview) scene.remove(footprintPreview);
-            const floors = Math.max(1, Math.min(30, parseInt($('newBuildingFloors').value) || 3));
+            const floors = Math.max(1, Math.min(30, parseInt($('newBuildingFloors').value) || 5));
             const shape = $('buildingShape').value || 'box';
             const p = `${floors} 樓建物 (${shape})`;
             const wallColor = $('wallColor').value;
@@ -3227,6 +3229,17 @@
             autoSave();
         }
 
+        function updateFootprintPreviewAt(point) {
+            if (!footprintMode || !footprintStart || !point) return;
+            if (footprintPreview) scene.remove(footprintPreview);
+            footprintPreview = new THREE.Mesh(
+                new THREE.BoxGeometry(Math.abs(point.x - footprintStart.x), 0.08, Math.abs(point.z - footprintStart.z)),
+                new THREE.MeshBasicMaterial({ color: '#3b67f2', transparent: true, opacity: 0.28 })
+            );
+            footprintPreview.position.set((point.x + footprintStart.x) / 2, 0.07, (point.z + footprintStart.z) / 2);
+            scene.add(footprintPreview);
+        }
+
         function clearModes() {
             annotationMode = selectionMode = footprintMode = relationMode = multiLinkMode = moveMode =
                 lineSelectMode = deleteMode = false;
@@ -3238,6 +3251,8 @@
             ].forEach(
                 id => $(id).classList.remove('active', 'primary', 'active-tool'));
             $('mode').classList.remove('show');
+            controls.enabled = true;
+            renderer.domElement.style.touchAction = '';
             renderer.domElement.style.cursor = 'grab';
             if (!multiLinkMode) {
                 selectedForLink.forEach(i => { if (annotationObjects[i]) annotationObjects[i].element.classList.remove(
@@ -4157,6 +4172,7 @@
             $('floors').value = 5;
             $('basements').value = 0;
             $('width').value = 14;
+            $('newBuildingFloors').value = 5;
             $('wallColor').value = '#e5e1d8';
             $('glassColor').value = '#557c9c';
             $('lightingPreset').value = 'day';
@@ -4183,7 +4199,7 @@
             annotationMode = next;
             $('annotationBtn').classList.toggle('active', next);
             $('topAnnotationBtn').classList.toggle('active-tool', next);
-            $('mode').textContent = '點擊建築表面或地面任意處放置標示 (或於左側選擇樓層後點擊該樓層任意處)';
+            $('mode').textContent = '點擊建築表面或地面任意處放置標示';
             $('mode').classList.toggle('show', next);
             renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
             if (next) updateAnnotationFloorOptions();
@@ -4202,16 +4218,21 @@
             $('footprintBtn').classList.toggle('active', next);
             $('mode').textContent = '點擊地面第一個角點';
             $('mode').classList.toggle('show', next);
+            if (next && isTouchDevice) {
+                controls.enabled = false;
+                renderer.domElement.style.touchAction = 'none';
+            }
             renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
         };
-        $('selectBtn').onclick = () => {
+        function toggleSelectionMode() {
             const next = !selectionMode;
             clearModes();
             selectionMode = next;
             $('selectBtn').classList.toggle('active', next);
             $('mode').textContent = '點擊建物以選取 (Shift 多選)';
             $('mode').classList.toggle('show', next);
-        };
+        }
+        $('selectBtn').onclick = toggleSelectionMode;
         function toggleMoveMode() {
             const next = !moveMode;
             clearModes();
@@ -4472,6 +4493,12 @@
         }
 
         renderer.domElement.addEventListener('touchstart', (e) => {
+            if (footprintMode) {
+                if (e.touches.length !== 1) return;
+                e.preventDefault();
+                suppressCanvasClickUntil = Date.now() + 500;
+                return;
+            }
             if (!moveMode) return;
             if (e.touches.length !== 1) return;
             const pt = getTouchPoint(e);
@@ -4486,6 +4513,16 @@
         }, { passive: false });
 
         renderer.domElement.addEventListener('touchmove', (e) => {
+            if (footprintMode) {
+                if (!footprintStart) return;
+                const pt = getTouchPoint(e);
+                if (pt) {
+                    e.preventDefault();
+                    const p = groundPoint(pt);
+                    if (p) updateFootprintPreviewAt(p);
+                }
+                return;
+            }
             if (moveMode && isDragging) {
                 const pt = getTouchPoint(e);
                 if (pt) {
@@ -4496,6 +4533,15 @@
         }, { passive: false });
 
         renderer.domElement.addEventListener('touchend', (e) => {
+            if (footprintMode) {
+                e.preventDefault();
+                suppressCanvasClickUntil = Date.now() + 500;
+                const pt = getTouchPoint(e);
+                if (!pt) return;
+                const p = groundPoint(pt);
+                if (p) drawFootprint(p);
+                return;
+            }
             if (moveMode && isDragging) {
                 e.preventDefault();
                 endDrag();
@@ -4507,6 +4553,7 @@
         });
 
         renderer.domElement.addEventListener('click', (e) => {
+            if (Date.now() < suppressCanvasClickUntil) return;
             if (isDragging) return;
             if (footprintMode) {
                 const p = groundPoint(e);
@@ -4621,13 +4668,7 @@
             if (!footprintMode || !footprintStart) return;
             const p = groundPoint(e);
             if (!p) return;
-            if (footprintPreview) scene.remove(footprintPreview);
-            footprintPreview = new THREE.Mesh(
-                new THREE.BoxGeometry(Math.abs(p.x - footprintStart.x), 0.08, Math.abs(p.z - footprintStart.z)),
-                new THREE.MeshBasicMaterial({ color: '#3b67f2', transparent: true, opacity: 0.28 })
-            );
-            footprintPreview.position.set((p.x + footprintStart.x) / 2, 0.07, (p.z + footprintStart.z) / 2);
-            scene.add(footprintPreview);
+            updateFootprintPreviewAt(p);
         });
 
         $('exportBtn').onclick = exportProjectJson;
