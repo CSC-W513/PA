@@ -774,10 +774,23 @@
                         <button id="applyAppearanceBtn" class="secondary full">套用外觀設定</button>
 
                         <div class="field">
-                            <label>縮放比例 (選取建築)</label>
-                            <input id="scaleInput" type="number" min="0.1" max="5" step="0.05" value="1" disabled />
+                            <label>拉伸倍率 (選取建築)</label>
+                            <div class="row">
+                                <div class="field">
+                                    <label>寬(X)</label>
+                                    <input id="scaleXInput" type="number" min="0.01" step="0.05" value="1" disabled />
+                                </div>
+                                <div class="field">
+                                    <label>高(Y)</label>
+                                    <input id="scaleYInput" type="number" min="0.01" step="0.05" value="1" disabled />
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label>長(Z)</label>
+                                <input id="scaleZInput" type="number" min="0.01" step="0.05" value="1" disabled />
+                            </div>
                         </div>
-                        <p class="hint">框選：先設定樓層數與形狀，再點地面兩對角新增建物；選取模式點擊建物；移動模式拖曳已選建物。</p>
+                        <p class="hint">框選：先設定樓層數與形狀，再點地面兩對角新增建物；選取模式點擊建物；移動模式拖曳已選建物；長按建物後，左右拉伸按到的寬／長面，上下調整高度。</p>
                     </div>
                 </div>
             </div>
@@ -1279,9 +1292,8 @@
             controls.update();
             $('analysisStatus').textContent = '無建築 — 點擊「生成／新增 建築」開始';
             selectBuildings([]);
-            const scaleInput = $('scaleInput');
-            scaleInput.disabled = true;
-            scaleInput.value = 1;
+            setBuildingScaleInputsDisabled(true);
+            updateBuildingScaleInputs();
             autoSave();
         }
 
@@ -1530,8 +1542,46 @@
         let buildingResizeStartY = 0;
         let buildingResizeStartScaleX = 1;
         let buildingResizeStartScaleY = 1;
+        let buildingResizeStartScaleZ = 1;
+        let buildingResizeHorizontalAxis = 'x';
 
-        function refreshBuildingVisuals(building) {
+        function clampBuildingScale(value) {
+            if (!Number.isFinite(value)) return 1;
+            return Math.max(0.01, value);
+        }
+
+        function getScaleAxisLabel(axis) {
+            if (axis === 'x') return '寬度';
+            if (axis === 'y') return '高度';
+            return '長度';
+        }
+
+        function updateBuildingScaleInputs(building = null) {
+            const scaleXInput = $('scaleXInput');
+            const scaleYInput = $('scaleYInput');
+            const scaleZInput = $('scaleZInput');
+            if (!scaleXInput || !scaleYInput || !scaleZInput) return;
+            if (!building) {
+                scaleXInput.value = 1;
+                scaleYInput.value = 1;
+                scaleZInput.value = 1;
+                return;
+            }
+            scaleXInput.value = building.scale.x.toFixed(2);
+            scaleYInput.value = building.scale.y.toFixed(2);
+            scaleZInput.value = building.scale.z.toFixed(2);
+        }
+
+        function setBuildingScaleInputsDisabled(disabled) {
+            ['scaleXInput', 'scaleYInput', 'scaleZInput'].forEach(id => {
+                const input = $(id);
+                if (input) input.disabled = disabled;
+            });
+        }
+
+        function refreshBuildingVisuals(buildingOrBuildings) {
+            const targets = Array.isArray(buildingOrBuildings) ? buildingOrBuildings.filter(Boolean) : [buildingOrBuildings].filter(Boolean);
+            const targetSet = new Set(targets);
             selectionBoxes.forEach(box => scene.remove(box));
             selectionBoxes = [];
             selectedBuildings.forEach(g => {
@@ -1541,7 +1591,7 @@
             });
             annotations.forEach((data, idx) => {
                 const obj = annotationObjects[idx];
-                if (obj && obj.parent === building) {
+                if (obj && targetSet.has(obj.parent)) {
                     const worldPos = obj.position.clone();
                     obj.parent.localToWorld(worldPos);
                     data.position[0] = worldPos.x;
@@ -1552,17 +1602,19 @@
             rebuildRelations();
         }
 
-        function beginBuildingResize(building, startScreenX, startScreenY) {
+        function beginBuildingResize(building, startScreenX, startScreenY, horizontalAxis = 'x') {
             isResizingBuilding = true;
             buildingResizeTarget = building;
             buildingResizeStartX = startScreenX;
             buildingResizeStartY = startScreenY;
             buildingResizeStartScaleX = building.scale.x;
             buildingResizeStartScaleY = building.scale.y;
+            buildingResizeStartScaleZ = building.scale.z;
+            buildingResizeHorizontalAxis = horizontalAxis === 'z' ? 'z' : 'x';
             controls.enabled = false;
             if (selectedBuildings[0] !== building) selectBuildings([building]);
             renderer.domElement.style.cursor = 'move';
-            $('mode').textContent = '長按拖曳：上下調整高度，左右調整寬深，放開完成';
+            $('mode').textContent = `長按拖曳：左右調整${getScaleAxisLabel(buildingResizeHorizontalAxis)}，上下調整高度，放開完成`;
             $('mode').classList.add('show');
             $('analysisStatus').textContent = `調整大小中…（${building === mainBuilding ? '主建築' : '新增建築'}）`;
             if (navigator.vibrate) navigator.vibrate(15);
@@ -1572,20 +1624,23 @@
             if (!isResizingBuilding || !buildingResizeTarget) return;
             const dy = buildingResizeStartY - clientY;
             const dx = clientX - buildingResizeStartX;
-            let sy = buildingResizeStartScaleY + dy / BUILDING_RESIZE_SENSITIVITY;
-            let sx = buildingResizeStartScaleX + dx / BUILDING_RESIZE_SENSITIVITY;
-            sy = Math.min(5, Math.max(0.1, sy));
-            sx = Math.min(5, Math.max(0.1, sx));
-            buildingResizeTarget.scale.set(sx, sy, sx);
-            if (selectedBuildings[0] === buildingResizeTarget && $('scaleInput')) {
-                $('scaleInput').value = sy.toFixed(2);
-            }
+            const sy = clampBuildingScale(buildingResizeStartScaleY + dy / BUILDING_RESIZE_SENSITIVITY);
+            const horizontalScale = clampBuildingScale(
+                (buildingResizeHorizontalAxis === 'z' ? buildingResizeStartScaleZ : buildingResizeStartScaleX) +
+                dx / BUILDING_RESIZE_SENSITIVITY
+            );
+            const sx = buildingResizeHorizontalAxis === 'x' ? horizontalScale : buildingResizeStartScaleX;
+            const sz = buildingResizeHorizontalAxis === 'z' ? horizontalScale : buildingResizeStartScaleZ;
+            buildingResizeTarget.scale.set(sx, sy, sz);
+            updateBuildingScaleInputs(buildingResizeTarget);
             refreshBuildingVisuals(buildingResizeTarget);
         }
 
         function endBuildingResize() {
             if (isResizingBuilding && buildingResizeTarget) {
-                $('analysisStatus').textContent = `已調整大小為 ${buildingResizeTarget.scale.x.toFixed(2)}（${buildingResizeTarget === mainBuilding ? '主建築' : '新增建築'}）`;
+                $('analysisStatus').textContent =
+                    `已調整大小（寬 ${buildingResizeTarget.scale.x.toFixed(2)} / 高 ${buildingResizeTarget.scale.y.toFixed(2)} / 長 ${buildingResizeTarget.scale.z.toFixed(2)}）` +
+                    `（${buildingResizeTarget === mainBuilding ? '主建築' : '新增建築'}）`;
                 rebuildRelations();
                 autoSave();
             }
@@ -1599,6 +1654,7 @@
         function attachBuildingLongPressResize() {
             let pressTimer = null;
             let pressCandidate = null;
+            let pressCandidateAxis = 'x';
             let pressStartX = 0,
                 pressStartY = 0;
             let cancelled = false;
@@ -1607,6 +1663,7 @@
                 if (pressTimer) { clearTimeout(pressTimer);
                     pressTimer = null; }
                 pressCandidate = null;
+                pressCandidateAxis = 'x';
             }
 
             renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -1614,16 +1671,17 @@
                 if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode ||
                     deleteMode || moveMode || selectionMode) return;
                 if (isDragging || isResizingBuilding || markerDragIndex !== -1) return;
-                const building = getBuildingFromRaycast(e);
-                if (!building) return;
-                pressCandidate = building;
+                const hitInfo = getBuildingHitInfo(e);
+                if (!hitInfo) return;
+                pressCandidate = hitInfo.building;
+                pressCandidateAxis = getBuildingResizeAxis(hitInfo.building, hitInfo.hit.point);
                 pressStartX = e.clientX;
                 pressStartY = e.clientY;
                 cancelled = false;
                 pressTimer = setTimeout(() => {
                     pressTimer = null;
                     if (cancelled || !pressCandidate) return;
-                    beginBuildingResize(pressCandidate, pressStartX, pressStartY);
+                    beginBuildingResize(pressCandidate, pressStartX, pressStartY, pressCandidateAxis);
                 }, BUILDING_LONG_PRESS_MS);
             });
 
@@ -2483,11 +2541,10 @@
             selectedBuildings = groups.filter(g => g !== null);
             updateAnnotationFloorOptions();
 
-            const scaleInput = $('scaleInput');
             if (selectedBuildings.length === 0) {
                 $('deleteBuildingBtn').disabled = true;
-                scaleInput.disabled = true;
-                scaleInput.value = 1;
+                setBuildingScaleInputsDisabled(true);
+                updateBuildingScaleInputs();
                 $('analysisStatus').textContent = '未選取建築';
                 return;
             }
@@ -2499,8 +2556,8 @@
             });
 
             $('deleteBuildingBtn').disabled = false;
-            scaleInput.disabled = false;
-            scaleInput.value = selectedBuildings[0].scale.x.toFixed(2);
+            setBuildingScaleInputsDisabled(false);
+            updateBuildingScaleInputs(selectedBuildings[0]);
 
             const center = new THREE.Vector3();
             if (selectedBuildings.length > 1) {
@@ -3254,7 +3311,7 @@
             return null;
         }
 
-        function getBuildingFromRaycast(event) {
+        function getBuildingHitInfo(event) {
             const r = renderer.domElement.getBoundingClientRect();
             pointer.x = ((event.clientX - r.left) / r.width) * 2 - 1;
             pointer.y = -((event.clientY - r.top) / r.height) * 2 + 1;
@@ -3266,9 +3323,24 @@
 
             const hit = raycaster.intersectObjects(targets, false)[0];
             if (hit && hit.object.isMesh) {
-                return getBuildingFromMesh(hit.object);
+                const building = getBuildingFromMesh(hit.object);
+                if (building) return { building, hit };
             }
             return null;
+        }
+
+        function getBuildingFromRaycast(event) {
+            return getBuildingHitInfo(event)?.building || null;
+        }
+
+        function getBuildingResizeAxis(building, worldPoint) {
+            const localPoint = building.worldToLocal(worldPoint.clone());
+            const baseWidth = Math.max(5, building.userData.width || 14);
+            const shape = building.userData.shape || 'box';
+            const baseDepth = shape === 'cylinder' ? baseWidth : (building.userData.depth || baseWidth * 0.67);
+            const xRatio = Math.abs(localPoint.x) / Math.max(0.001, (baseWidth * building.scale.x) / 2);
+            const zRatio = Math.abs(localPoint.z) / Math.max(0.001, (baseDepth * building.scale.z) / 2);
+            return xRatio >= zRatio ? 'x' : 'z';
         }
 
         function getGroundIntersect(event) {
@@ -3425,32 +3497,18 @@
             renderer.domElement.style.cursor = moveMode ? 'grab' : 'grab';
         }
 
-        function updateScale(val) {
+        function updateScaleAxis(axis, val) {
             if (selectedBuildings.length === 0) return;
-            const s = parseFloat(val);
-            if (isNaN(s) || s < 0.1) return;
+            const s = clampBuildingScale(parseFloat(val));
+            if (Number.isNaN(s)) return;
             selectedBuildings.forEach(building => {
-                building.scale.set(s, s, s);
+                if (axis === 'x') building.scale.x = s;
+                else if (axis === 'y') building.scale.y = s;
+                else building.scale.z = s;
             });
-            selectionBoxes.forEach(box => scene.remove(box));
-            selectionBoxes = [];
-            selectedBuildings.forEach(g => {
-                const box = new THREE.BoxHelper(g, '#ff8b36');
-                scene.add(box);
-                selectionBoxes.push(box);
-            });
-            annotations.forEach((data, idx) => {
-                const obj = annotationObjects[idx];
-                if (obj && obj.parent === selectedBuildings[0]) {
-                    const worldPos = obj.position.clone();
-                    obj.parent.localToWorld(worldPos);
-                    data.position[0] = worldPos.x;
-                    data.position[1] = worldPos.y;
-                    data.position[2] = worldPos.z;
-                }
-            });
-            rebuildRelations();
-            $('analysisStatus').textContent = `縮放比例設為 ${s.toFixed(2)} (套用至 ${selectedBuildings.length} 棟)`;
+            refreshBuildingVisuals(selectedBuildings);
+            updateBuildingScaleInputs(selectedBuildings[0]);
+            $('analysisStatus').textContent = `${getScaleAxisLabel(axis)}倍率設為 ${s.toFixed(2)} (套用至 ${selectedBuildings.length} 棟)`;
             autoSave();
         }
 
@@ -4331,10 +4389,17 @@
             });
         })();
 
-        const scaleInput = $('scaleInput');
-        scaleInput.addEventListener('input', (e) => {
+        $('scaleXInput').addEventListener('input', (e) => {
             if (selectedBuildings.length === 0) return;
-            updateScale(e.target.value);
+            updateScaleAxis('x', e.target.value);
+        });
+        $('scaleYInput').addEventListener('input', (e) => {
+            if (selectedBuildings.length === 0) return;
+            updateScaleAxis('y', e.target.value);
+        });
+        $('scaleZInput').addEventListener('input', (e) => {
+            if (selectedBuildings.length === 0) return;
+            updateScaleAxis('z', e.target.value);
         });
 
         renderer.domElement.addEventListener('click', (e) => {
