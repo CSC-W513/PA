@@ -2079,6 +2079,7 @@
             updateAnnotationBadges();
             updateMultiLinkUI();
             updateAnnotationFloorOptions();
+            applyBuildingIsolationVisibility();
         }
 
         function handleAnnotationClick(index, event) {
@@ -2110,6 +2111,7 @@
             $('deleteAllRelationsBtn').disabled = relations.length === 0;
             $('deleteSelectedRelationsBtn').disabled = selectedRelationIds.length === 0;
             updateAnnotationBadges();
+            applyBuildingIsolationVisibility();
         }
 
         function updateAnnotationBadges() {
@@ -2537,6 +2539,40 @@
             renderer.toneMappingExposure = themes.exposure;
         }
 
+        function getIsolatedBuilding() {
+            return selectedBuildings.length === 1 ? selectedBuildings[0] : null;
+        }
+
+        function applyBuildingIsolationVisibility() {
+            const isolatedBuilding = getIsolatedBuilding();
+            const allBuildings = [mainBuilding, ...additionsGroup.children.filter(g => g?.userData?.buildingId !== undefined)];
+
+            allBuildings.forEach(building => {
+                building.visible = !isolatedBuilding || building === isolatedBuilding;
+            });
+
+            annotations.forEach((data, idx) => {
+                const obj = annotationObjects[idx];
+                if (!obj) return;
+                const parentBuilding = findBuildingById(data.buildingId);
+                const isVisible = !isolatedBuilding || parentBuilding === isolatedBuilding;
+                obj.visible = isVisible;
+                if (obj.element) obj.element.style.display = isVisible ? '' : 'none';
+            });
+
+            relationGroup.children.forEach(group => {
+                const relationId = group.userData?.relationId;
+                const relation = relations.find(r => r.id === relationId);
+                if (!relation) {
+                    group.visible = !isolatedBuilding;
+                    return;
+                }
+                const fromBuilding = findBuildingById(annotations[relation.from]?.buildingId);
+                const toBuilding = findBuildingById(annotations[relation.to]?.buildingId);
+                group.visible = !isolatedBuilding || (fromBuilding === isolatedBuilding && toBuilding === isolatedBuilding);
+            });
+        }
+
         function selectBuildings(groups) {
             selectionBoxes.forEach(box => scene.remove(box));
             selectionBoxes = [];
@@ -2547,6 +2583,7 @@
                 $('deleteBuildingBtn').disabled = true;
                 setBuildingScaleInputsDisabled(true);
                 updateBuildingScaleInputs();
+                applyBuildingIsolationVisibility();
                 $('analysisStatus').textContent = '未選取建築';
                 return;
             }
@@ -2577,6 +2614,7 @@
             }
             controls.update();
 
+            applyBuildingIsolationVisibility();
             $('analysisStatus').textContent = `已選取 ${selectedBuildings.length} 棟建築 (視角中心已對準)`;
         }
 
