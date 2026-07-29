@@ -1,0 +1,4 @@
+window.APP_CLOUD_CONFIG = {
+  supabaseUrl: 'https://otdjrzpmtrojlcisoxeb.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZGpyenBtdHJvamxjaXNveGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MjgzMzksImV4cCI6MjA4NjAwNDMzOX0.B_OUasemoz8E1UiRVT4zlkv5Yf7nVnOW0LZs0Wkp3Ik'
+};

@@ -1,0 +1,6 @@
+backend_config.local.json
+.env
+.env.local
+.vercel/
+備份/
+__pycache__/

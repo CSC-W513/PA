@@ -1,0 +1,16 @@
+{
+  "name": "3D-PA位置標註",
+  "short_name": "3D 標註",
+  "description": "3D 建築位置標註工具",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef1f6",
+  "theme_color": "#3b67f2",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
