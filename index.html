@@ -689,17 +689,30 @@
                 padding: 4px 10px;
             }
             .axis-toolbar-panel {
-                top: 62px;
+                top: 108px;
                 right: 10px;
                 width: fit-content;
                 max-width: calc(100% - 20px);
-                padding: 8px;
+                padding: 5px 6px;
             }
             .axis-toolbar-panel .axis-move-row {
-                flex-wrap: wrap;
+                gap: 4px;
+                flex-wrap: nowrap;
             }
             .axis-toolbar-panel .axis-move-group {
-                min-width: 86px;
+                gap: 4px;
+                min-width: 0;
+                padding: 3px 5px;
+                border-radius: 6px;
+            }
+            .axis-toolbar-panel .axis-move-group span {
+                width: 10px;
+                font-size: 10px;
+            }
+            .axis-toolbar-panel .axis-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 12px;
             }
             .filename-bar strong {
                 font-size: 12px;
