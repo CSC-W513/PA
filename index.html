@@ -285,6 +285,7 @@
             padding: 5px 12px;
             box-shadow: 0 5px 22px #34405914;
             overflow: hidden;
+            transition: top .2s ease;
         }
         .filename-bar strong {
             font-size: 13px;
@@ -430,36 +431,36 @@
         .axis-move-row {
             display: flex;
             gap: 6px;
-            margin-top: 4px;
+        }
+        .axis-toolbar-panel {
+            position: absolute;
+            right: 18px;
+            top: 72px;
+            z-index: 5;
+            width: fit-content;
+            max-width: calc(100% - 36px);
+            background: #fffc;
+            border: 1px solid #ffffff99;
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 5px 22px #34405914;
         }
         .axis-move-group {
-            flex: 1;
             display: flex;
             align-items: center;
-            gap: 3px;
+            gap: 5px;
             background: #f4f6fa;
             border: 1px solid var(--line);
             border-radius: 7px;
-            padding: 4px 5px;
+            padding: 4px 6px;
         }
         .axis-move-group span {
             font-size: 11px;
             font-weight: 700;
             color: var(--muted);
-            width: 10px;
+            width: 12px;
             text-align: center;
-        }
-        .axis-move-group input {
-            width: 0;
-            flex: 1;
-            border: none;
-            background: transparent;
-            font-size: 12px;
-            text-align: center;
-            color: var(--ink);
-        }
-        .axis-move-group input:focus {
-            outline: none;
         }
         .axis-btn {
             width: 20px;
@@ -475,6 +476,8 @@
             display: grid;
             place-items: center;
             flex: 0 0 auto;
+            touch-action: manipulation;
+            user-select: none;
         }
         .axis-btn:hover {
             border-color: var(--blue);
@@ -685,6 +688,19 @@
                 max-width: none;
                 padding: 4px 10px;
             }
+            .axis-toolbar-panel {
+                top: 62px;
+                right: 10px;
+                width: fit-content;
+                max-width: calc(100% - 20px);
+                padding: 8px;
+            }
+            .axis-toolbar-panel .axis-move-row {
+                flex-wrap: wrap;
+            }
+            .axis-toolbar-panel .axis-move-group {
+                min-width: 86px;
+            }
             .filename-bar strong {
                 font-size: 12px;
             }
@@ -822,6 +838,7 @@
                                     <option value="📹">📹 監視器</option>
                                     <option value="🚪">🚪 門</option>
                                     <option value="🪑">🪑 座椅</option>
+                                    <option value="🪜">🪜 樓梯</option>
                                     <option value="🚻">🚻 廁所</option>
                                     <option value="📞">📞 電話</option>
                                 </select>
@@ -862,33 +879,6 @@
                             <button id="deleteAllRelationsBtn" class="danger" disabled>刪除所有連線</button>
                         </div>
                         <button id="editAnnotationBtn" class="secondary full" disabled>編輯選取標註文字</button>
-                        <div class="field" id="axisMovePanel" style="display:none;">
-                            <label>選取標註微調 (X / Y / Z)</label>
-                            <div class="axis-move-row">
-                                <div class="axis-move-group">
-                                    <span>X</span>
-                                    <button type="button" class="axis-btn" data-axis="0" data-dir="-1">−</button>
-                                    <input id="axisMoveX" type="number" step="0.1" />
-                                    <button type="button" class="axis-btn" data-axis="0" data-dir="1">＋</button>
-                                </div>
-                                <div class="axis-move-group">
-                                    <span>Y</span>
-                                    <button type="button" class="axis-btn" data-axis="1" data-dir="-1">−</button>
-                                    <input id="axisMoveY" type="number" step="0.1" />
-                                    <button type="button" class="axis-btn" data-axis="1" data-dir="1">＋</button>
-                                </div>
-                                <div class="axis-move-group">
-                                    <span>Z</span>
-                                    <button type="button" class="axis-btn" data-axis="2" data-dir="-1">−</button>
-                                    <input id="axisMoveZ" type="number" step="0.1" />
-                                    <button type="button" class="axis-btn" data-axis="2" data-dir="1">＋</button>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="field"><label>移動步進</label><input id="axisMoveStep" type="number" min="0.05" step="0.05" value="0.5" /></div>
-                            </div>
-                            <span class="hint">拖曳標註點時會自動判別移動軸向：水平拖曳=X/Z、垂直拖曳=Y (高度)，無需手動點選；此面板僅供需要精確座標時使用。</span>
-                        </div>
                         <p class="hint" id="multiLinkStatus">點擊標註點選取 (依序)</p>
                     </div>
                 </div>
@@ -944,6 +934,26 @@
                     <button id="topDeleteBtn" title="刪除"><span class="icon">🗑</span><span class="label">刪除</span></button>
                 </div>
             </header>
+            <div class="field axis-toolbar-panel" id="axisMovePanel" style="display:none;">
+                <div class="axis-move-row">
+                    <div class="axis-move-group">
+                        <span>X</span>
+                        <button type="button" class="axis-btn" data-axis="0" data-dir="-1">−</button>
+                        <button type="button" class="axis-btn" data-axis="0" data-dir="1">＋</button>
+                    </div>
+                    <div class="axis-move-group">
+                        <span>Y</span>
+                        <button type="button" class="axis-btn" data-axis="1" data-dir="-1">−</button>
+                        <button type="button" class="axis-btn" data-axis="1" data-dir="1">＋</button>
+                    </div>
+                    <div class="axis-move-group">
+                        <span>Z</span>
+                        <button type="button" class="axis-btn" data-axis="2" data-dir="-1">−</button>
+                        <button type="button" class="axis-btn" data-axis="2" data-dir="1">＋</button>
+                    </div>
+                </div>
+                <input id="axisMoveStep" type="hidden" value="0.5" />
+            </div>
             <div class="filename-bar"><strong id="projectFileName">3D 建築視圖</strong></div>
             <div id="canvas" class="canvas-wrap"></div>
             <div id="mode" class="mode">點擊建築表面或地面任意處以放置標示</div>
@@ -974,6 +984,7 @@
 
         const $ = id => document.getElementById(id),
             canvas = $('canvas');
+        const workspaceEl = document.querySelector('.workspace');
         const CLOUD_CONFIG = window.APP_CLOUD_CONFIG || null;
         const DIRECT_SUPABASE_ENABLED = !!(CLOUD_CONFIG?.supabaseUrl && CLOUD_CONFIG?.anonKey);
         const SUPABASE_REST_URL = DIRECT_SUPABASE_ENABLED ? `${String(CLOUD_CONFIG.supabaseUrl).replace(/\/$/, '')}/rest/v1` : '';
@@ -1073,6 +1084,7 @@
         let relationObjects = [];
         let lineColor = '#ff8b36';
         let lineWidth = 3;
+        const annotationIconTextureCache = new Map();
 
         let annotationMode = false,
             xrayMode = false,
@@ -1131,6 +1143,157 @@
             o.castShadow = o.receiveShadow = true;
             parent.add(o);
             return o;
+        }
+
+        function normalizeAnnotationIcon(icon) {
+            return icon === '3D' ? '🚻' : (icon || '●');
+        }
+
+        function createAnnotationIconTexture(icon, color) {
+            const normalizedIcon = normalizeAnnotationIcon(icon);
+            const key = `${normalizedIcon}__${color || '#5f8aff'}`;
+            if (annotationIconTextureCache.has(key)) return annotationIconTextureCache.get(key);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineJoin = 'round';
+
+            const isAsciiIcon = /^[A-Za-z0-9!?+\-]+$/.test(normalizedIcon);
+            ctx.font = isAsciiIcon ?
+                '900 68px "Segoe UI", Arial, sans-serif' :
+                '84px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+            ctx.lineWidth = 12;
+            ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+            ctx.strokeText(normalizedIcon, canvas.width / 2, canvas.height / 2);
+            ctx.fillStyle = color || '#5f8aff';
+            ctx.fillText(normalizedIcon, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.needsUpdate = true;
+            annotationIconTextureCache.set(key, texture);
+            return texture;
+        }
+
+        function createAnnotationElement(text, icon, color) {
+            const el = document.createElement('div');
+            el.className = 'annotation';
+            el.textContent = text;
+            el.style.pointerEvents = 'auto';
+            el.style.setProperty('--symbol', `"${normalizeAnnotationIcon(icon)}"`);
+            el.style.setProperty('--accent', color || '#5f8aff');
+            return el;
+        }
+
+        function createAnnotationObject(text, icon, color) {
+            const normalizedIcon = normalizeAnnotationIcon(icon);
+            const accent = new THREE.Color(color || '#5f8aff');
+            const root = new THREE.Group();
+            root.userData.isAnnotationMarker = true;
+
+            const base = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.11, 0.14, 0.055, 18),
+                new THREE.MeshStandardMaterial({ color: '#182131', roughness: 0.78, metalness: 0.12 })
+            );
+            base.position.y = 0.03;
+            base.castShadow = base.receiveShadow = true;
+            root.add(base);
+
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.04, 0.36, 12),
+                new THREE.MeshStandardMaterial({ color: accent.clone().multiplyScalar(0.78), roughness: 0.4, metalness: 0.22 })
+            );
+            stem.position.y = 0.23;
+            stem.castShadow = stem.receiveShadow = true;
+            root.add(stem);
+
+            const glow = new THREE.Mesh(
+                new THREE.CircleGeometry(0.17, 24),
+                new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.2 })
+            );
+            glow.rotation.x = -Math.PI / 2;
+            glow.position.y = 0.06;
+            root.add(glow);
+
+            const iconPivot = new THREE.Group();
+            iconPivot.position.y = 0.63;
+            root.add(iconPivot);
+
+            const iconTexture = createAnnotationIconTexture(normalizedIcon, color);
+            const frameMaterial = new THREE.MeshStandardMaterial({ color: '#f5f8ff', roughness: 0.28, metalness: 0.15 });
+            const sideMaterial = new THREE.MeshStandardMaterial({ color: accent.clone().multiplyScalar(0.92), roughness: 0.45, metalness: 0.18 });
+            const faceMaterial = new THREE.MeshStandardMaterial({
+                color: '#ffffff',
+                map: iconTexture || null,
+                transparent: true,
+                alphaTest: 0.08,
+                roughness: 0.22,
+                metalness: 0.1
+            });
+
+            const panel = new THREE.Mesh(
+                new THREE.BoxGeometry(0.56, 0.56, 0.1),
+                [sideMaterial, sideMaterial, frameMaterial, frameMaterial, faceMaterial, faceMaterial.clone()]
+            );
+            panel.castShadow = panel.receiveShadow = true;
+            iconPivot.add(panel);
+
+            const cap = new THREE.Mesh(
+                new THREE.SphereGeometry(0.055, 14, 14),
+                new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3, metalness: 0.2 })
+            );
+            cap.position.y = 0.35;
+            iconPivot.add(cap);
+
+            const el = createAnnotationElement(text, normalizedIcon, color);
+            const label = new CSS2DObject(el);
+            label.position.set(0, 0.72, 0);
+            root.add(label);
+
+            root.element = el;
+            root.labelObject = label;
+            root.userData.iconPivot = iconPivot;
+            root.userData.labelObject = label;
+            return root;
+        }
+
+        function placeAnnotationObject(obj, worldPos, parentGroup) {
+            const localPos = parentGroup.worldToLocal(worldPos.clone());
+            obj.position.copy(localPos);
+            parentGroup.add(obj);
+        }
+
+        function createSceneAnnotation(data, index, parentGroup) {
+            const color = data.color || '#5f8aff';
+            const icon = normalizeAnnotationIcon(data.icon);
+            data.icon = icon;
+            const obj = createAnnotationObject(data.text, icon, color);
+            obj.element.dataset.index = index;
+            if (selectedForLink.includes(index) || index === selectedAnnotationIndex) {
+                obj.element.classList.add('selected');
+            }
+            placeAnnotationObject(obj, new THREE.Vector3(...data.position), parentGroup);
+            attachAnnotationInteraction(obj.element, index);
+            annotationObjects.push(obj);
+            return obj;
+        }
+
+        function updateAnnotationVisualScale() {
+            annotationObjects.forEach(obj => {
+                const iconPivot = obj?.userData?.iconPivot;
+                if (!iconPivot) return;
+                iconPivot.lookAt(camera.position);
+                const dist = camera.position.distanceTo(obj.getWorldPosition(new THREE.Vector3()));
+                const scaleFactor = THREE.MathUtils.clamp(dist / 32, 0.82, 1.8);
+                iconPivot.scale.setScalar(scaleFactor);
+            });
         }
 
         function createBuilding(floors, basements, width, wallColor, glassColor, isMain = true, shape = 'box', customDepth = null) {
@@ -1793,50 +1956,15 @@
                 return;
             }
 
-            $('analysisStatus').textContent = '自動判別：水平面移動中 (X / Z)';
+            $('analysisStatus').textContent = '自動判別：依點選位置貼齊建物 / 地面';
 
-            if (data.floor) {
-                const building = findBuildingById(data.buildingId) || mainBuilding;
-                const localY = getFloorLocalY(data.floor, building);
-                if (localY === null) return;
-
-                const dist = camera.position.distanceTo(new THREE.Vector3(...markerDragStartWorldPos));
-                const worldPerPixel = Math.max(0.01, dist * 0.0016);
-
-                const camRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-                camRight.y = 0;
-                if (camRight.lengthSq() < 1e-6) camRight.set(1, 0, 0); else camRight.normalize();
-
-                const camForward = new THREE.Vector3();
-                camera.getWorldDirection(camForward);
-                camForward.y = 0;
-                if (camForward.lengthSq() < 1e-6) camForward.set(0, 0, -1); else camForward.normalize();
-
-                const rawPoint = new THREE.Vector3(...markerDragStartWorldPos)
-                    .addScaledVector(camRight, dx * worldPerPixel)
-                    .addScaledVector(camForward, -dy * worldPerPixel);
-
-                const point = clampPointToFloorBounds(building, rawPoint, localY);
-                data.position = point.toArray();
-                obj.position.copy(building.worldToLocal(point.clone()));
-                return;
-            }
-
-            const r = renderer.domElement.getBoundingClientRect();
-            pointer.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
-            pointer.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-            raycaster.setFromCamera(pointer, camera);
-
-            const targets = [ground];
-            mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
-            additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
-
-            const hit = raycaster.intersectObjects(targets, false)[0];
+            const hit = getPlacementHit(ev, true);
             if (!hit) return;
 
             const newParent = getBuildingGroupFromHit(hit);
             data.position = hit.point.toArray();
             data.buildingId = newParent.userData.buildingId !== undefined ? newParent.userData.buildingId : 0;
+            data.floor = null;
 
             if (obj.parent !== newParent) {
                 if (obj.parent) obj.parent.remove(obj);
@@ -1867,12 +1995,11 @@
             const data = annotations[selectedAnnotationIndex];
             if (selectedAnnotationIndex < 0 || !data) {
                 panel.style.display = 'none';
+                workspaceEl?.classList.remove('annotation-panel-visible');
                 return;
             }
             panel.style.display = '';
-            $('axisMoveX').value = data.position[0].toFixed(2);
-            $('axisMoveY').value = data.position[1].toFixed(2);
-            $('axisMoveZ').value = data.position[2].toFixed(2);
+            workspaceEl?.classList.add('annotation-panel-visible');
         }
 
         function setAnnotationPosition(index, newPos) {
@@ -1891,7 +2018,7 @@
 
         function nudgeSelectedAnnotation(axis, dir) {
             if (selectedAnnotationIndex < 0 || !annotations[selectedAnnotationIndex]) return;
-            const step = parseFloat($('axisMoveStep').value) || 0.5;
+            const step = parseFloat($('axisMoveStep')?.value) || 0.5;
             const data = annotations[selectedAnnotationIndex];
             const pos = [...data.position];
             pos[axis] = (pos[axis] || 0) + dir * step;
@@ -1933,7 +2060,12 @@
             const toRemove = [];
             [mainBuilding, additionsGroup, groundGroup].forEach(root => {
                 root.traverse(obj => {
-                    if (obj instanceof CSS2DObject || obj.isCSS2DObject || obj.element?.classList?.contains('annotation')) {
+                    if (obj?.userData?.isAnnotationMarker) {
+                        toRemove.push(obj);
+                        return;
+                    }
+                    if ((obj instanceof CSS2DObject || obj.isCSS2DObject || obj.element?.classList?.contains('annotation')) &&
+                        !obj.parent?.userData?.isAnnotationMarker) {
                         toRemove.push(obj);
                     }
                 });
@@ -2035,44 +2167,12 @@
             clearAllSceneAnnotations();
 
             annotations.forEach((data, index) => {
-                const el = document.createElement('div');
-                el.className = 'annotation';
-                el.textContent = data.text;
-                el.style.pointerEvents = 'auto';
-                el.style.setProperty('--symbol', `"${data.icon || '●'}"`);
-                el.style.setProperty('--accent', data.color || '#5f8aff');
-                el.dataset.index = index;
-
-                const orders = relations.filter(r => r.from === index || r.to === index).map(r => r.order);
-                if (orders.length > 0) {
-                    const badge = document.createElement('span');
-                    badge.className = 'order-badge';
-                    badge.textContent = orders.sort((a, b) => a - b).join(',');
-                    el.appendChild(badge);
-                }
-
-                if (selectedForLink.includes(index)) {
-                    el.classList.add('selected');
-                } else if (index === selectedAnnotationIndex) {
-                    el.classList.add('selected');
-                }
-
-                const obj = new CSS2DObject(el);
                 const parentGroup = findBuildingById(data.buildingId);
                 if (parentGroup) {
-                    const worldPos = new THREE.Vector3(data.position[0], data.position[1], data.position[2]);
-                    const localPos = parentGroup.worldToLocal(worldPos.clone());
-                    obj.position.copy(localPos);
-                    parentGroup.add(obj);
+                    createSceneAnnotation(data, index, parentGroup);
                 } else {
-                    const worldPos = new THREE.Vector3(data.position[0], data.position[1], data.position[2]);
-                    const localPos = mainBuilding.worldToLocal(worldPos.clone());
-                    obj.position.copy(localPos);
-                    mainBuilding.add(obj);
+                    createSceneAnnotation(data, index, mainBuilding);
                 }
-                annotationObjects.push(obj);
-
-                attachAnnotationInteraction(el, index);
             });
 
             rebuildRelations();
@@ -2543,6 +2643,13 @@
             return selectedBuildings.length === 1 ? selectedBuildings[0] : null;
         }
 
+        function getAnnotationOwnerBuilding(data, obj) {
+            const parentFromObject = obj?.parent;
+            if (parentFromObject === mainBuilding || parentFromObject === groundGroup) return parentFromObject;
+            if (parentFromObject?.parent === additionsGroup) return parentFromObject;
+            return findBuildingById(data?.buildingId);
+        }
+
         function applyBuildingIsolationVisibility() {
             const isolatedBuilding = getIsolatedBuilding();
             const allBuildings = [mainBuilding, ...additionsGroup.children.filter(g => g?.userData?.buildingId !== undefined)];
@@ -2554,9 +2661,10 @@
             annotations.forEach((data, idx) => {
                 const obj = annotationObjects[idx];
                 if (!obj) return;
-                const parentBuilding = findBuildingById(data.buildingId);
+                const parentBuilding = getAnnotationOwnerBuilding(data, obj);
                 const isVisible = !isolatedBuilding || parentBuilding === isolatedBuilding;
                 obj.visible = isVisible;
+                if (obj.userData?.labelObject) obj.userData.labelObject.visible = isVisible;
                 if (obj.element) obj.element.style.display = isVisible ? '' : 'none';
             });
 
@@ -3308,17 +3416,10 @@
 
         function addAnnotation(point, text, icon = $('annotationIcon').value, color = $('annotationColor').value,
             parentGroup = mainBuilding, floorValue = null) {
-            const el = document.createElement('div');
-            el.className = 'annotation';
-            el.textContent = text;
-            el.style.pointerEvents = 'auto';
-            el.style.setProperty('--symbol', `"${icon}"`);
-            el.style.setProperty('--accent', color);
-            const obj = new CSS2DObject(el);
+            icon = normalizeAnnotationIcon(icon);
+            const obj = createAnnotationObject(text, icon, color);
 
-            const localPos = parentGroup.worldToLocal(point.clone());
-            obj.position.copy(localPos);
-            parentGroup.add(obj);
+            placeAnnotationObject(obj, point.clone(), parentGroup);
 
             const buildingId = parentGroup.userData.buildingId !== undefined ? parentGroup.userData.buildingId : 0;
             const record = {
@@ -3332,9 +3433,9 @@
             const index = annotations.length;
             annotations.push(record);
             annotationObjects.push(obj);
-            el.dataset.index = index;
+            obj.element.dataset.index = index;
 
-            attachAnnotationInteraction(el, index);
+            attachAnnotationInteraction(obj.element, index);
 
             updateAnnotationBadges();
             $('analysisStatus').textContent = `已新增標示：「${text}」 (${icon})`;
@@ -3364,17 +3465,37 @@
             return null;
         }
 
-        function getBuildingHitInfo(event) {
+        function hasAnnotationMarkerAncestor(obj) {
+            let current = obj;
+            while (current) {
+                if (current.userData?.isAnnotationMarker) return true;
+                current = current.parent;
+            }
+            return false;
+        }
+
+        function collectPlacementTargets(includeGround = true) {
+            const targets = [];
+            mainBuilding.traverse(o => {
+                if (o.isMesh && !hasAnnotationMarkerAncestor(o)) targets.push(o);
+            });
+            additionsGroup.traverse(o => {
+                if (o.isMesh && !hasAnnotationMarkerAncestor(o)) targets.push(o);
+            });
+            if (includeGround) targets.push(ground);
+            return targets;
+        }
+
+        function getPlacementHit(event, includeGround = true) {
             const r = renderer.domElement.getBoundingClientRect();
             pointer.x = ((event.clientX - r.left) / r.width) * 2 - 1;
             pointer.y = -((event.clientY - r.top) / r.height) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
+            return raycaster.intersectObjects(collectPlacementTargets(includeGround), false)[0] || null;
+        }
 
-            const targets = [];
-            mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
-            additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
-
-            const hit = raycaster.intersectObjects(targets, false)[0];
+        function getBuildingHitInfo(event) {
+            const hit = getPlacementHit(event, false);
             if (hit && hit.object.isMesh) {
                 const building = getBuildingFromMesh(hit.object);
                 if (building) return { building, hit };
@@ -4121,21 +4242,9 @@
 
             (data.annotations || []).forEach(a => {
                 const parent = findBuildingById(a.buildingId) || mainBuilding;
-                const el = document.createElement('div');
-                el.className = 'annotation';
-                el.textContent = a.text;
-                el.style.pointerEvents = 'auto';
-                el.style.setProperty('--symbol', `"${a.icon || '●'}"`);
-                el.style.setProperty('--accent', a.color || '#5f8aff');
-                const obj = new CSS2DObject(el);
-                const localPos = parent.worldToLocal(new THREE.Vector3(...a.position));
-                obj.position.copy(localPos);
-                parent.add(obj);
                 const index = annotations.length;
-                annotations.push({ ...a });
-                annotationObjects.push(obj);
-                el.dataset.index = index;
-                attachAnnotationInteraction(el, index);
+                annotations.push({ ...a, icon: normalizeAnnotationIcon(a.icon) });
+                createSceneAnnotation(annotations[index], index, parent);
             });
 
             (data.relations || []).forEach(r => {
@@ -4380,17 +4489,38 @@
             if (e.target === $('groupModal')) closeGroupModal();
         });
 
+        let axisMoveHoldState = null;
+        function stopAxisMoveHold() {
+            if (!axisMoveHoldState) return;
+            clearTimeout(axisMoveHoldState.delayTimer);
+            clearInterval(axisMoveHoldState.repeatTimer);
+            axisMoveHoldState = null;
+        }
         document.querySelectorAll('.axis-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const axis = parseInt(btn.dataset.axis, 10);
-                const dir = parseInt(btn.dataset.dir, 10);
+            const axis = parseInt(btn.dataset.axis, 10);
+            const dir = parseInt(btn.dataset.dir, 10);
+            btn.addEventListener('pointerdown', e => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                e.preventDefault();
+                stopAxisMoveHold();
                 nudgeSelectedAnnotation(axis, dir);
+                const holdState = {
+                    delayTimer: null,
+                    repeatTimer: null
+                };
+                holdState.delayTimer = setTimeout(() => {
+                    holdState.repeatTimer = setInterval(() => nudgeSelectedAnnotation(axis, dir), 70);
+                }, 260);
+                axisMoveHoldState = holdState;
+                const stopHold = () => stopAxisMoveHold();
+                window.addEventListener('pointerup', stopHold, { once: true });
+                window.addEventListener('pointercancel', stopHold, { once: true });
+                window.addEventListener('blur', stopHold, { once: true });
+            });
+            btn.addEventListener('click', e => {
+                if (e.detail === 0) nudgeSelectedAnnotation(axis, dir);
             });
         });
-        $('axisMoveX').addEventListener('change', e => setSelectedAnnotationAxis(0, e.target.value));
-        $('axisMoveY').addEventListener('change', e => setSelectedAnnotationAxis(1, e.target.value));
-        $('axisMoveZ').addEventListener('change', e => setSelectedAnnotationAxis(2, e.target.value));
-
         const sidebarEl = document.querySelector('.sidebar');
         const sidebarToggleBtn = $('sidebarToggleBtn');
         let sidebarCollapsed = false;
@@ -4726,6 +4856,7 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            updateAnnotationVisualScale();
             updateRelationVisualScale();
             updateRelationBlink();
             renderer.render(scene, camera);
