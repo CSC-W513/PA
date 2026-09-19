@@ -2067,6 +2067,7 @@
             if (!obj) return;
             if (obj.parent) obj.parent.remove(obj);
             if (obj.element?.remove) obj.element.remove();
+            if (obj.labelObject?.element?.remove) obj.labelObject.element.remove();
         }
 
         function clearAllSceneAnnotations() {
@@ -2086,6 +2087,9 @@
             toRemove.forEach(removeAnnotationObject);
             annotationObjects.forEach(removeAnnotationObject);
             annotationObjects = [];
+            // CSS2DRenderer 不會自動移除「被整組拔出場景」的標註文字，
+            // 這裡一併清掉殘留在 DOM 的孤兒標註，避免刪除建物/復原後殘留或重複
+            labelRenderer.domElement.querySelectorAll('.annotation').forEach(el => el.remove());
         }
 
         function setRelationColor(group, hexColor) {
@@ -2759,10 +2763,11 @@
             const toRemove = [...selectedBuildings];
             toRemove.forEach(building => {
                 if (building === mainBuilding) {
+                    // 先移除標註（含 DOM 與連線），再清空建物本體
+                    deleteBuildingAnnotations(building);
                     while (mainBuilding.children.length > 0) mainBuilding.remove(mainBuilding.children[0]);
                     mainBuilding.userData.floors = 0;
                     mainBuilding.userData.basements = 0;
-                    deleteBuildingAnnotations(building);
                 } else {
                     const idx = additionsGroup.children.indexOf(building);
                     if (idx >= 0) {
@@ -2781,24 +2786,26 @@
         }
 
         function deleteBuildingAnnotations(building) {
+            const buildingId = building?.userData?.buildingId;
             const ids = [];
             annotations.forEach((data, idx) => {
-                if (data.buildingId === building.userData.buildingId) {
-                    ids.push(idx);
-                }
+                if (data.buildingId === buildingId) ids.push(idx);
             });
             ids.sort((a, b) => b - a).forEach(idx => {
-                if (annotationObjects[idx] && annotationObjects[idx].parent) {
-                    annotationObjects[idx].parent.remove(annotationObjects[idx]);
-                }
+                // 移除 3D 標記與 DOM 文字標籤（不論是否仍掛在場景上）
+                removeAnnotationObject(annotationObjects[idx]);
                 annotationObjects.splice(idx, 1);
                 annotations.splice(idx, 1);
-                relations = relations.map(r => ({
-                    id: r.id,
-                    from: r.from > idx ? r.from - 1 : r.from,
-                    to: r.to > idx ? r.to - 1 : r.to,
-                    order: r.order
-                })).filter(r => r.from >= 0 && r.to >= 0);
+                // 先移除與被刪標註相關的連線，再平移其餘連線的索引
+                relations = relations
+                    .filter(r => r.from !== idx && r.to !== idx)
+                    .map(r => ({
+                        id: r.id,
+                        from: r.from > idx ? r.from - 1 : r.from,
+                        to: r.to > idx ? r.to - 1 : r.to,
+                        order: r.order
+                    }));
+                selectedForLink = selectedForLink.filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
                 if (selectedAnnotationIndex === idx) selectedAnnotationIndex = -1;
                 else if (selectedAnnotationIndex > idx) selectedAnnotationIndex--;
             });
@@ -2996,9 +3003,7 @@
                 const indicesToRemove = affectedAnnotations.map(a => a.index).sort((a, b) => b - a);
                 indicesToRemove.forEach(idx => {
                     // 先從場景中移除 CSS2DObject
-                    if (annotationObjects[idx] && annotationObjects[idx].parent) {
-                        annotationObjects[idx].parent.remove(annotationObjects[idx]);
-                    }
+                    removeAnnotationObject(annotationObjects[idx]);
                     // 從陣列中移除
                     annotationObjects.splice(idx, 1);
                     annotations.splice(idx, 1);
@@ -3070,13 +3075,7 @@
                         if (!confirm(`⚠️ 該建築上還有 ${remaining.length} 個標註點，將會一併移除：\n${names}\n\n確定要繼續嗎？`)) {
                             return;
                         }
-                        remaining.sort((a, b) => b - a).forEach(idx => {
-                            if (annotationObjects[idx] && annotationObjects[idx].parent) {
-                                annotationObjects[idx].parent.remove(annotationObjects[idx]);
-                            }
-                            annotationObjects.splice(idx, 1);
-                            annotations.splice(idx, 1);
-                        });
+                        deleteBuildingAnnotations(mainBuilding);
                     }
                     
                     rebuildAnnotations();
@@ -3140,17 +3139,7 @@
                     const pIdx = additionPrompts.indexOf(oldData.prompt);
                     if (pIdx >= 0) additionPrompts.splice(pIdx, 1);
                     // 刪除建築及其所有標註
-                    const allIndices = [];
-                    annotations.forEach((data, idx) => {
-                        if (data.buildingId === targetId) allIndices.push(idx);
-                    });
-                    allIndices.sort((a, b) => b - a).forEach(idx => {
-                        if (annotationObjects[idx] && annotationObjects[idx].parent) {
-                            annotationObjects[idx].parent.remove(annotationObjects[idx]);
-                        }
-                        annotationObjects.splice(idx, 1);
-                        annotations.splice(idx, 1);
-                    });
+                    deleteBuildingAnnotations(old);
                     additionsGroup.remove(old);
                     selectBuildings([]);
                     $('analysisStatus').textContent = '建築已完全移除 (無樓層)';
@@ -3265,9 +3254,7 @@
 
                             const indicesToRemove = affectedAnnotations.map(a => a.index).sort((a, b) => b - a);
                             indicesToRemove.forEach(idx => {
-                                if (annotationObjects[idx] && annotationObjects[idx].parent) {
-                                    annotationObjects[idx].parent.remove(annotationObjects[idx]);
-                                }
+                                removeAnnotationObject(annotationObjects[idx]);
                                 annotationObjects.splice(idx, 1);
                                 annotations.splice(idx, 1);
 
