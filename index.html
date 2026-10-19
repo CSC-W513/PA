@@ -364,7 +364,7 @@
             padding: 3px 10px 3px 22px;
             font: 12px Inter, sans-serif;
             white-space: nowrap;
-            transform: translate(-50%, -100%);
+            transform: translate(0, -50%);
             transform-origin: 50% 100%;
             cursor: pointer;
             box-shadow: 0 5px 12px #0003;
@@ -395,9 +395,11 @@
             opacity: .85;
         }
         .annotation .order-badge {
-            position: absolute;
-            right: -6px;
-            top: -6px;
+            /* 編號排在文字後方（行內），不再浮在文字上方遮住說明 */
+            position: static;
+            display: inline-block;
+            margin-left: 6px;
+            vertical-align: middle;
             background: #ff8b36;
             color: #fff;
             border-radius: 10px;
@@ -1276,7 +1278,8 @@
 
             const container = createAnnotationElement(text, normalizedIcon, color);
             const label = new CSS2DObject(container);
-            label.position.set(0, 0.72, 0);
+            // 文字標籤緊貼在標註圖示正上方（圖示頂端約在 y=1.04）
+            label.position.set(0, 0.2, 0);
             root.add(label);
 
             root.element = container.innerElement;
@@ -1344,7 +1347,9 @@
                     // 上限設為 1.5 避免近看太大
                     const clampedScale = THREE.MathUtils.clamp(scaleFactor * ANNOTATION_SIZE_BOOST, 0, 3.5);
                     labelInner.style.transformOrigin = '50% 100%';
-                    labelInner.style.transform = `translate(-50%, -100%) scale(${clampedScale})`;
+                    // CSS2DRenderer 已把外層容器置中於標註點，這裡只需上移半個高度，
+                    // 讓標籤「底部中央」剛好落在錨點上，並以底部中央為縮放原點
+                    labelInner.style.transform = `translate(0, -50%) scale(${clampedScale})`;
                     
                     // 如果縮小到幾乎看不見，隱藏它以優化效能
                     labelInner.style.opacity = clampedScale < 0.05 ? "0" : "1";
