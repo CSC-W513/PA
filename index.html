@@ -364,6 +364,7 @@
             font: 12px Inter, sans-serif;
             white-space: nowrap;
             transform: translate(-50%, -100%);
+            transform-origin: 50% 100%;
             cursor: pointer;
             box-shadow: 0 5px 12px #0003;
             pointer-events: auto;
@@ -1006,9 +1007,9 @@
         const GROUP_AUTH_TTL = 30 * 60 * 1000;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('#dfe7f1');
-        scene.fog = new THREE.Fog('#dfe7f1', 200, 500);
+        // 已取消霧氣效果：縮小地圖時仍可清楚看到建物
 
-        const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 20000);
         camera.position.set(42, 31, 46);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -1028,7 +1029,7 @@
         controls.target.set(0, 13, 0);
         controls.maxPolarAngle = Math.PI;
         controls.minDistance = 0.1;
-        controls.maxDistance = 1000;
+        controls.maxDistance = 10000;
         controls.mouseButtons = {
             LEFT: THREE.MOUSE.ROTATE,
             MIDDLE: THREE.MOUSE.PAN,
@@ -1196,13 +1197,20 @@
         }
 
         function createAnnotationElement(text, icon, color) {
+            const container = document.createElement('div');
+            container.className = 'annotation-container';
+            container.style.pointerEvents = 'none';
+
             const el = document.createElement('div');
             el.className = 'annotation';
             el.textContent = text;
             el.style.pointerEvents = 'auto';
             el.style.setProperty('--symbol', `"${normalizeAnnotationIcon(icon)}"`);
             el.style.setProperty('--accent', color || '#5f8aff');
-            return el;
+            
+            container.appendChild(el);
+            container.innerElement = el;
+            return container;
         }
 
         function createAnnotationObject(text, icon, color) {
@@ -1265,15 +1273,16 @@
             cap.position.y = 0.35;
             iconPivot.add(cap);
 
-            const el = createAnnotationElement(text, normalizedIcon, color);
-            const label = new CSS2DObject(el);
+            const container = createAnnotationElement(text, normalizedIcon, color);
+            const label = new CSS2DObject(container);
             label.position.set(0, 0.72, 0);
             root.add(label);
 
-            root.element = el;
+            root.element = container.innerElement;
             root.labelObject = label;
             root.userData.iconPivot = iconPivot;
             root.userData.labelObject = label;
+            root.userData.labelInner = container.innerElement;
             return root;
         }
 
@@ -1298,14 +1307,48 @@
             return obj;
         }
 
+        const _camDir = new THREE.Vector3();
+        const _annWorldPos = new THREE.Vector3();
+        // 標註點整體放大倍率（3D 圖示與文字標籤一起放大，仍隨距離等比例縮放）
+        const ANNOTATION_SIZE_BOOST = 2.2;
         function updateAnnotationVisualScale() {
+            camera.getWorldDirection(_camDir);
             annotationObjects.forEach(obj => {
                 const iconPivot = obj?.userData?.iconPivot;
+                const labelObject = obj?.userData?.labelObject;
                 if (!iconPivot) return;
+
                 iconPivot.lookAt(camera.position);
-                const dist = camera.position.distanceTo(obj.getWorldPosition(new THREE.Vector3()));
-                const scaleFactor = THREE.MathUtils.clamp(dist / 32, 0.82, 1.8);
-                iconPivot.scale.setScalar(scaleFactor);
+
+                const worldPos = obj.getWorldPosition(_annWorldPos);
+                // 以沿視線方向的深度計算，與建物透視縮放完全同比例
+                const dist = _annWorldPos.clone().sub(camera.position).dot(_camDir);
+
+                // 讓圖示與建築物等比例縮放（移除隨距離變大的補償邏輯）
+                // 基準距離設為 32，當距離為 32 時縮放為 1
+                const referenceDist = 32;
+                const scaleFactor = referenceDist / Math.max(dist, 1);
+                
+                // 3D 圖示部分：原本 dist/32 是為了讓它在遠處看起來一樣大
+                // 現在改為固定比例 1.0，它就會隨透視自然縮小
+                iconPivot.scale.setScalar(1.0);
+                obj.scale.setScalar(ANNOTATION_SIZE_BOOST);
+
+                // CSS2D 標籤部分：因為它不會隨透視縮小，所以手動計算縮放比例
+                const labelInner = obj.userData?.labelInner;
+                if (labelInner) {
+                    // 這裡使用 scaleFactor 讓標籤隨距離縮小
+                    // 並加上 clamp 避免太近時太大或太遠時完全看不見
+                    // 移除下限限制，讓標籤隨距離無限縮小（等比例）
+                    // 上限設為 1.5 避免近看太大
+                    const clampedScale = THREE.MathUtils.clamp(scaleFactor * ANNOTATION_SIZE_BOOST, 0, 3.5);
+                    labelInner.style.transformOrigin = '50% 100%';
+                    labelInner.style.transform = `translate(-50%, -100%) scale(${clampedScale})`;
+                    
+                    // 如果縮小到幾乎看不見，隱藏它以優化效能
+                    labelInner.style.opacity = clampedScale < 0.05 ? "0" : "1";
+                    labelInner.style.pointerEvents = clampedScale < 0.1 ? "none" : "auto";
+                }
             });
         }
 
@@ -2173,9 +2216,8 @@
         function updateRelationVisualScale() {
             relationGroup.children.forEach(g => {
                 if (!g.userData.isRelationVisual) return;
-                const dist = camera.position.distanceTo(g.userData.midpoint || g.position);
-                const scaleFactor = THREE.MathUtils.clamp(dist / LINE_REFERENCE_DISTANCE, 0.35, 3.5);
-                g.scale.set(scaleFactor, 1, scaleFactor);
+                // 讓連線也隨透視自然縮放，不進行距離補償
+                g.scale.set(1.0, 1.0, 1.0);
             });
         }
 
@@ -2648,7 +2690,6 @@
                     exposure: .72 }
             } [style];
             scene.background = new THREE.Color(themes.bg);
-            scene.fog.color.set(themes.fg);
             ground.material.color.set(themes.ground);
             hemi.intensity = themes.hemi;
             sun.intensity = themes.sun;
