@@ -1317,8 +1317,8 @@
         // 遠看（整棟建築）時放大方便辨識；拉近到建築內部時逐漸縮回，
         // 讓標註點相對於樓層維持較小的比例，不遮擋樓層內部
         const ANNOTATION_BOOST_FAR = 2.2;   // 遠距離倍率
-        const ANNOTATION_BOOST_NEAR = 0.6;  // 近距離（建築內部）倍率
-        const ANNOTATION_NEAR_DIST = 10;    // 小於此距離使用近距離倍率
+        const ANNOTATION_BOOST_NEAR = 0.8;  // 近距離（建築內部）倍率
+        const ANNOTATION_NEAR_DIST = 25;    // 小於此距離使用近距離倍率
         const ANNOTATION_FAR_DIST = 45;     // 大於此距離使用遠距離倍率
         function getAnnotationBoost(depth) {
             const t = THREE.MathUtils.clamp((depth - ANNOTATION_NEAR_DIST) / (ANNOTATION_FAR_DIST - ANNOTATION_NEAR_DIST), 0, 1);
