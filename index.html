@@ -1314,7 +1314,17 @@
         const _camDir = new THREE.Vector3();
         const _annWorldPos = new THREE.Vector3();
         // 標註點整體放大倍率（3D 圖示與文字標籤一起放大，仍隨距離等比例縮放）
-        const ANNOTATION_SIZE_BOOST = 2.2;
+        // 遠看（整棟建築）時放大方便辨識；拉近到建築內部時逐漸縮回，
+        // 讓標註點相對於樓層維持較小的比例，不遮擋樓層內部
+        const ANNOTATION_BOOST_FAR = 2.2;   // 遠距離倍率
+        const ANNOTATION_BOOST_NEAR = 0.6;  // 近距離（建築內部）倍率
+        const ANNOTATION_NEAR_DIST = 10;    // 小於此距離使用近距離倍率
+        const ANNOTATION_FAR_DIST = 45;     // 大於此距離使用遠距離倍率
+        function getAnnotationBoost(depth) {
+            const t = THREE.MathUtils.clamp((depth - ANNOTATION_NEAR_DIST) / (ANNOTATION_FAR_DIST - ANNOTATION_NEAR_DIST), 0, 1);
+            const s = t * t * (3 - 2 * t);
+            return ANNOTATION_BOOST_NEAR + (ANNOTATION_BOOST_FAR - ANNOTATION_BOOST_NEAR) * s;
+        }
         function updateAnnotationVisualScale() {
             camera.getWorldDirection(_camDir);
             annotationObjects.forEach(obj => {
@@ -1336,7 +1346,8 @@
                 // 3D 圖示部分：原本 dist/32 是為了讓它在遠處看起來一樣大
                 // 現在改為固定比例 1.0，它就會隨透視自然縮小
                 iconPivot.scale.setScalar(1.0);
-                obj.scale.setScalar(ANNOTATION_SIZE_BOOST);
+                const boost = getAnnotationBoost(dist);
+                obj.scale.setScalar(boost);
 
                 // CSS2D 標籤部分：因為它不會隨透視縮小，所以手動計算縮放比例
                 const labelInner = obj.userData?.labelInner;
@@ -1345,7 +1356,7 @@
                     // 並加上 clamp 避免太近時太大或太遠時完全看不見
                     // 移除下限限制，讓標籤隨距離無限縮小（等比例）
                     // 上限設為 1.5 避免近看太大
-                    const clampedScale = THREE.MathUtils.clamp(scaleFactor * ANNOTATION_SIZE_BOOST, 0, 3.5);
+                    const clampedScale = THREE.MathUtils.clamp(scaleFactor * boost, 0, 6);
                     labelInner.style.transformOrigin = '50% 100%';
                     // CSS2DRenderer 已把外層容器置中於標註點，這裡只需上移半個高度，
                     // 讓標籤「底部中央」剛好落在錨點上，並以底部中央為縮放原點
